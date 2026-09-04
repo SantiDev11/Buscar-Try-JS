@@ -1,27 +1,34 @@
 /**
  * ============================================================================
  * EJERCICIO: BUSCADOR DE USUARIOS DE GITHUB
- * Tecnologías: HTML5 Semántico, CSS3, JavaScript Moderno (Fetch, Async/Await)
+ * Tecnologías: HTML5 Semántico, CSS3 Moderno, JavaScript ES6+ (Fetch, Async/Await)
  * ============================================================================
  */
 
 'use strict';
 
+// ============================================================================
 // 1. SELECCIÓN DE ELEMENTOS DEL DOM
+// ============================================================================
 const loaderInicial = document.getElementById('loader-inicial');
 
+// Consola y Formulario
 const formulario = document.getElementById('formulario-usuario');
 const inputUsuario = document.getElementById('input-usuario');
 const campoBusqueda = inputUsuario.closest('.barra-busqueda__campo');
+const iconoValido = document.getElementById('icono-valido');
 const btnBuscar = document.getElementById('btn-buscar');
-const btnBuscarTexto = btnBuscar.querySelector('.barra-busqueda__boton-texto');
+const btnSpinner = document.getElementById('btn-spinner');
+const btnBuscarTexto = document.getElementById('btn-buscar-texto');
 
+// Mensajes contextuales y estado inicial
 const mensajeEstado = document.getElementById('mensaje-estado');
 const mensajeIcono = document.getElementById('mensaje-icono');
 const mensajeTexto = document.getElementById('mensaje-texto');
 const estadoVacio = document.getElementById('estado-vacio');
+const chipsSugerencias = document.querySelectorAll('.sugerencias__chip');
 
-// Tarjeta de perfil
+// Tarjeta de Perfil
 const tarjetaUsuario = document.getElementById('tarjeta-usuario');
 const avatarUsuario = document.getElementById('avatar-usuario');
 const nombreUsuario = document.getElementById('nombre-usuario');
@@ -29,87 +36,111 @@ const loginUsuario = document.getElementById('login-usuario');
 const bioUsuario = document.getElementById('bio-usuario');
 const ubicacionUsuario = document.getElementById('ubicacion-usuario');
 const ubicacionTexto = document.getElementById('ubicacion-texto');
+const empresaUsuario = document.getElementById('empresa-usuario');
+const empresaTexto = document.getElementById('empresa-texto');
+const blogUsuario = document.getElementById('blog-usuario');
+const blogEnlace = document.getElementById('blog-enlace');
 const enlaceGithub = document.getElementById('enlace-github');
 
-// Estadísticas
+// Sección de Estadísticas (4 métricas)
 const seccionEstadisticas = document.getElementById('seccion-estadisticas');
 const statRepos = document.getElementById('stat-repos');
 const statSeguidores = document.getElementById('stat-seguidores');
 const statSiguiendo = document.getElementById('stat-siguiendo');
-const statConsultados = document.getElementById('stat-consultados');
 const statEstrellas = document.getElementById('stat-estrellas');
 
-// Repositorios
+// Sección de Repositorios
 const seccionRepositorios = document.getElementById('seccion-repositorios');
+const repositoriosContador = document.getElementById('repositorios-contador');
 const listaRepositorios = document.getElementById('lista-repositorios');
 const repositoriosVacio = document.getElementById('repositorios-vacio');
 
-// 2. EXPRESIÓN REGULAR PARA VALIDAR NOMBRE DE USUARIO DE GITHUB
-// Reglas oficiales de GitHub:
-// - Solo caracteres alfanuméricos y guiones medios (-).
-// - No puede comenzar ni terminar con guion medio.
-// - No puede contener dos guiones seguidos ni superar los 39 caracteres.
-// - No permite espacios ni caracteres como '@'.
+// ============================================================================
+// 2. CONSTANTES Y CONFIGURACIONES
+// ============================================================================
+
+// Formato de números con separador de miles en español (ej. 23.930)
+const formateadorNumeros = new Intl.NumberFormat('es-ES');
+
+// Expresión regular para validar nombres de usuario oficiales de GitHub:
+// - Solo caracteres alfanuméricos y guiones medios (-)
+// - Longitud entre 1 y 39 caracteres
+// - No puede iniciar ni terminar con guion
+// - No puede tener dos guiones consecutivos
 const REGEX_GITHUB_USERNAME = /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/;
 
-// Iconos fijos (definidos en el propio código, nunca con datos externos) para el sistema de mensajes.
-const ICONOS_MENSAJE = {
+// Iconos vectoriales seguros (código propio, no de APIs externas)
+const ICONOS_SISTEMA = {
   error: '<svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.9 2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  validacion: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="m9.5 9.5 5 5m0-5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
   exito: '<svg viewBox="0 0 24 24"><path d="m4 12.5 5 5L20 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   cargando: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-dasharray="34 20" stroke-linecap="round"/></svg>',
+  info: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 16v-4m0-4h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  estrella: '<svg viewBox="0 0 24 24"><path d="m12 3 2.6 5.9 6.4.6-4.8 4.3 1.4 6.3L12 17l-5.6 3.1 1.4-6.3L3 9.5l6.4-.6L12 3Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
+  fork: '<svg viewBox="0 0 24 24"><circle cx="7" cy="6" r="2.1" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="17" cy="6" r="2.1" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="18" r="2.1" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 8.1V11a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3V8.1M12 14v2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
 };
 
-// Iconos de estrella y fork para las tarjetas de repositorio.
-const ICONO_ESTRELLA = '<svg viewBox="0 0 24 24"><path d="m12 3 2.6 5.9 6.4.6-4.8 4.3 1.4 6.3L12 17l-5.6 3.1 1.4-6.3L3 9.5l6.4-.6L12 3Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>';
-const ICONO_FORK = '<svg viewBox="0 0 24 24"><circle cx="7" cy="6" r="2.1" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="17" cy="6" r="2.1" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="18" r="2.1" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 8.1V11a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3V8.1M12 14v2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
-
-// Colores de lenguaje inspirados en los que GitHub usa en sus propios listados de repositorios.
+// Paleta de colores oficiales para lenguajes comunes en GitHub
 const COLORES_LENGUAJE = {
-  JavaScript: '#f1e05a', TypeScript: '#3178c6', Python: '#3572A5', Java: '#b07219',
-  HTML: '#e34c26', CSS: '#563d7c', Ruby: '#701516', Go: '#00ADD8', 'C++': '#f34b7d',
-  C: '#555555', 'C#': '#178600', PHP: '#4F5D95', Shell: '#89e051', Rust: '#dea584',
-  Swift: '#F05138', Kotlin: '#A97BFF', Vue: '#41b883', Dart: '#00B4AB',
+  JavaScript: '#f1e05a',
+  TypeScript: '#3178c6',
+  Python: '#3572A5',
+  Java: '#b07219',
+  HTML: '#e34c26',
+  CSS: '#563d7c',
+  Ruby: '#701516',
+  Go: '#00ADD8',
+  'C++': '#f34b7d',
+  C: '#555555',
+  'C#': '#178600',
+  PHP: '#4F5D95',
+  Shell: '#89e051',
+  Rust: '#dea584',
+  Swift: '#F05138',
+  Kotlin: '#A97BFF',
+  Vue: '#41b883',
+  Dart: '#00B4AB',
 };
 const COLOR_LENGUAJE_DEFECTO = '#6e7681';
 
-/**
- * ============================================================================
- * LOADER INICIAL DE LA PÁGINA
- * ============================================================================
- */
-
+// ============================================================================
+// 3. LOADER INICIAL DE LA APLICACIÓN
+// ============================================================================
 function ocultarLoaderInicial() {
   if (!loaderInicial || loaderInicial.classList.contains('loader-inicial--oculto')) {
     return;
   }
   loaderInicial.classList.add('loader-inicial--oculto');
   loaderInicial.addEventListener('transitionend', () => loaderInicial.remove(), { once: true });
-  // Salvaguarda: si la transición no se dispara, se elimina igualmente.
-  setTimeout(() => loaderInicial.remove(), 600);
+  // Salvaguarda: garantiza eliminación incluso si transitionend no se dispara
+  setTimeout(() => {
+    if (loaderInicial && loaderInicial.parentElement) {
+      loaderInicial.remove();
+    }
+  }, 600);
 }
 
-// Pequeño retardo para que el loader sea perceptible antes de mostrar la app.
-window.addEventListener('load', () => setTimeout(ocultarLoaderInicial, 400));
-// Salvaguarda final: el loader nunca debe bloquear la página indefinidamente.
-setTimeout(ocultarLoaderInicial, 4000);
+// Al cargar los recursos de la página, ocultar con suave retardo
+window.addEventListener('load', () => setTimeout(ocultarLoaderInicial, 350));
+// Salvaguarda absoluta: nunca bloquear la pantalla más de 3 segundos
+setTimeout(ocultarLoaderInicial, 3000);
 
-/**
- * ============================================================================
- * SISTEMA DE MENSAJES DINÁMICOS (éxito, error, carga, validación)
- * ============================================================================
- */
-
+// ============================================================================
+// 4. SISTEMA DE MENSAJES DINÁMICOS Y TOAST
+// ============================================================================
 let temporizadorMensaje = null;
 
 /**
- * Muestra un mensaje contextual con icono, tipo visual y animación de entrada.
- * @param {'error'|'exito'|'cargando'} tipo
+ * Muestra un mensaje contextual con soporte para 5 estados:
+ * 'exito' | 'error' | 'validacion' | 'cargando' | 'info'
+ * @param {'exito'|'error'|'validacion'|'cargando'|'info'} tipo
  * @param {string} texto
  * @param {{ autoOcultarMs?: number }} [opciones]
  */
 function mostrarMensaje(tipo, texto, { autoOcultarMs } = {}) {
   clearTimeout(temporizadorMensaje);
-  mensajeIcono.innerHTML = ICONOS_MENSAJE[tipo] || '';
+
+  mensajeIcono.innerHTML = ICONOS_SISTEMA[tipo] || '';
   mensajeTexto.textContent = texto;
   mensajeEstado.className = `mensaje mensaje--visible mensaje--${tipo}`;
 
@@ -119,7 +150,7 @@ function mostrarMensaje(tipo, texto, { autoOcultarMs } = {}) {
 }
 
 /**
- * Oculta el mensaje contextual activo, con transición de salida.
+ * Oculta el mensaje contextual activo con animación de salida.
  */
 function ocultarMensaje() {
   clearTimeout(temporizadorMensaje);
@@ -129,71 +160,101 @@ function ocultarMensaje() {
 }
 
 /**
- * Muestra un mensaje de error visible para el usuario en la interfaz.
- * @param {string} mensaje - Texto descriptivo del error.
+ * Muestra un error visible para el usuario.
+ * @param {string} mensaje
  */
 function mostrarError(mensaje) {
   mostrarMensaje('error', mensaje);
 }
 
-/**
- * ============================================================================
- * VALIDACIÓN Y UTILIDADES DE INTERFAZ
- * ============================================================================
- */
+// ============================================================================
+// 5. VALIDACIÓN DINÁMICA
+// ============================================================================
 
 /**
- * Valida el nombre de usuario ANTES de realizar cualquier petición a la API.
+ * Valida estrictamente el nombre de usuario ANTES de cualquier petición.
  * @param {string} username
- * @returns {{ valido: boolean, mensaje: string }}
+ * @returns {{ valido: boolean, tipo: string, mensaje: string }}
  */
 function validarUsuario(username) {
-  if (username === '') {
-    return { valido: false, mensaje: 'Debes escribir un nombre de usuario.' };
+  if (!username || username.trim() === '') {
+    return {
+      valido: false,
+      tipo: 'error',
+      mensaje: 'Debes escribir un nombre de usuario.',
+    };
   }
 
-  if (username.includes('@')) {
-    return { valido: false, mensaje: 'No utilices "@". Escribe solamente el nombre de usuario.' };
+  const limpio = username.trim();
+
+  if (limpio.includes('@')) {
+    return {
+      valido: false,
+      tipo: 'validacion',
+      mensaje: '❌ No utilices @. Escribe solamente el nombre de usuario.',
+    };
   }
 
-  if (!REGEX_GITHUB_USERNAME.test(username)) {
-    return { valido: false, mensaje: 'Escribe un nombre de usuario de GitHub válido.' };
+  if (/\s/.test(limpio)) {
+    return {
+      valido: false,
+      tipo: 'validacion',
+      mensaje: 'El nombre de usuario no debe contener espacios.',
+    };
   }
 
-  return { valido: true, mensaje: '' };
+  if (!REGEX_GITHUB_USERNAME.test(limpio)) {
+    return {
+      valido: false,
+      tipo: 'validacion',
+      mensaje: 'Escribe un nombre de usuario de GitHub válido.',
+    };
+  }
+
+  return { valido: true, tipo: 'exito', mensaje: '' };
 }
 
 /**
- * Valida en vivo mientras el usuario escribe, sin esperar al envío del formulario.
- * Marca visualmente el campo y muestra u oculta el mensaje de validación.
+ * Validador en vivo mientras el usuario teclea en el input.
+ * Provee feedback visual instantáneo (clases de error/válido e iconos).
  */
 function validarEnVivo() {
-  const valor = inputUsuario.value.trim();
+  const valor = inputUsuario.value;
 
   if (valor === '') {
-    campoBusqueda.classList.remove('barra-busqueda__campo--error');
-    if (mensajeEstado.classList.contains('mensaje--error')) {
+    campoBusqueda.classList.remove('barra-busqueda__campo--error', 'barra-busqueda__campo--valido');
+    iconoValido.hidden = true;
+    if (mensajeEstado.classList.contains('mensaje--error') || mensajeEstado.classList.contains('mensaje--validacion')) {
       ocultarMensaje();
     }
     return;
   }
 
   const validacion = validarUsuario(valor);
+
   if (validacion.valido) {
     campoBusqueda.classList.remove('barra-busqueda__campo--error');
-    if (mensajeEstado.classList.contains('mensaje--error')) {
+    campoBusqueda.classList.add('barra-busqueda__campo--valido');
+    iconoValido.hidden = false;
+    if (mensajeEstado.classList.contains('mensaje--error') || mensajeEstado.classList.contains('mensaje--validacion')) {
       ocultarMensaje();
     }
   } else {
+    campoBusqueda.classList.remove('barra-busqueda__campo--valido');
     campoBusqueda.classList.add('barra-busqueda__campo--error');
-    mostrarMensaje('error', validacion.mensaje);
+    iconoValido.hidden = true;
+    mostrarMensaje(validacion.tipo, validacion.mensaje);
   }
 }
 
 inputUsuario.addEventListener('input', validarEnVivo);
 
+// ============================================================================
+// 6. CONTROL DE ESTADOS DE CARGA Y RESULTADOS
+// ============================================================================
+
 /**
- * Limpia los resultados de una búsqueda anterior antes de lanzar una nueva.
+ * Limpia la pantalla de resultados anteriores.
  */
 function limpiarResultados() {
   tarjetaUsuario.hidden = true;
@@ -204,49 +265,50 @@ function limpiarResultados() {
 }
 
 /**
- * Activa el estado visual de carga y deshabilita temporalmente el botón.
+ * Activa el indicador de carga y deshabilita el botón durante la búsqueda.
  */
 function mostrarLoading() {
   estadoVacio.hidden = true;
   mostrarMensaje('cargando', 'Buscando usuario en GitHub…');
+
   btnBuscar.disabled = true;
   btnBuscar.setAttribute('aria-busy', 'true');
+  btnSpinner.hidden = false;
   btnBuscarTexto.textContent = 'Buscando…';
 }
 
 /**
- * Restaura el estado del botón y limpia el indicador de carga (si sigue activo).
+ * Restaura el botón de búsqueda y retira el mensaje de carga.
  */
 function ocultarLoading() {
   btnBuscar.disabled = false;
   btnBuscar.removeAttribute('aria-busy');
+  btnSpinner.hidden = true;
   btnBuscarTexto.textContent = 'Buscar';
+
   if (mensajeEstado.classList.contains('mensaje--cargando')) {
     ocultarMensaje();
   }
 }
 
-/**
- * ============================================================================
- * CONSUMO DE LA API DE GITHUB
- * ============================================================================
- */
+// ============================================================================
+// 7. CONSUMO DE LA API OFICIAL DE GITHUB
+// ============================================================================
 
 /**
- * Consulta el perfil público de un usuario en la API oficial de GitHub.
- * @param {string} username - Nombre de usuario previamente validado.
+ * Consulta la información del usuario en la API oficial de GitHub.
+ * @param {string} username
  * @returns {Promise<Object>}
  */
 async function buscarUsuario(username) {
-  const respuesta = await fetch(
-    `https://api.github.com/users/${encodeURIComponent(username)}`
-  );
+  const respuesta = await fetch(`https://api.github.com/users/${encodeURIComponent(username)}`);
 
-  // fetch() no rechaza la promesa ante códigos de error HTTP como 404 o 500.
-  // Por ende, debemos comprobar explícitamente si respuesta.ok es true.
   if (!respuesta.ok) {
     if (respuesta.status === 404) {
       throw new Error('USUARIO_NO_ENCONTRADO');
+    }
+    if (respuesta.status === 403) {
+      throw new Error('LIMITE_API_EXCEDIDO');
     }
     throw new Error(`ERROR_HTTP_${respuesta.status}`);
   }
@@ -256,7 +318,7 @@ async function buscarUsuario(username) {
 
 /**
  * Consulta los repositorios públicos de un usuario en la API oficial de GitHub.
- * @param {string} username - Nombre de usuario previamente validado.
+ * @param {string} username
  * @returns {Promise<Array<Object>>}
  */
 async function obtenerRepositorios(username) {
@@ -265,42 +327,64 @@ async function obtenerRepositorios(username) {
   );
 
   if (!respuesta.ok) {
+    if (respuesta.status === 403) {
+      throw new Error('LIMITE_API_EXCEDIDO');
+    }
     throw new Error(`ERROR_HTTP_${respuesta.status}`);
   }
 
   return respuesta.json();
 }
 
-/**
- * ============================================================================
- * RENDERIZADO EN EL DOM (sin innerHTML para datos externos)
- * ============================================================================
- */
+// ============================================================================
+// 8. RENDERIZADO EN EL DOM (Seguridad: sin innerHTML en datos de terceros)
+// ============================================================================
 
 /**
- * Renderiza los datos del perfil en la tarjeta de usuario.
- * @param {Object} usuario - Objeto recibido de la API de GitHub.
+ * Renderiza los datos del perfil del usuario respetando valores nulos o inexistentes.
+ * @param {Object} usuario
  */
 function mostrarUsuario(usuario) {
   avatarUsuario.src = usuario.avatar_url;
-  avatarUsuario.alt = `Avatar de ${usuario.login}`;
+  avatarUsuario.alt = `Avatar oficial de ${usuario.login}`;
 
-  // Si el usuario no tiene nombre público configurado, se muestra su login.
   nombreUsuario.textContent = usuario.name || usuario.login;
   loginUsuario.textContent = `@${usuario.login}`;
 
-  if (usuario.bio) {
-    bioUsuario.textContent = usuario.bio;
+  // Bio opcional
+  if (usuario.bio && usuario.bio.trim() !== '') {
+    bioUsuario.textContent = usuario.bio.trim();
     bioUsuario.hidden = false;
   } else {
     bioUsuario.hidden = true;
   }
 
-  if (usuario.location) {
-    ubicacionTexto.textContent = usuario.location;
+  // Ubicación opcional
+  if (usuario.location && usuario.location.trim() !== '') {
+    ubicacionTexto.textContent = usuario.location.trim();
     ubicacionUsuario.hidden = false;
   } else {
     ubicacionUsuario.hidden = true;
+  }
+
+  // Empresa opcional
+  if (usuario.company && usuario.company.trim() !== '') {
+    empresaTexto.textContent = usuario.company.trim();
+    empresaUsuario.hidden = false;
+  } else {
+    empresaUsuario.hidden = true;
+  }
+
+  // Blog / Sitio web opcional
+  if (usuario.blog && usuario.blog.trim() !== '') {
+    const urlLimpia = usuario.blog.trim().startsWith('http')
+      ? usuario.blog.trim()
+      : `https://${usuario.blog.trim()}`;
+    blogEnlace.href = urlLimpia;
+    blogEnlace.textContent = usuario.blog.trim().replace(/^https?:\/\//, '');
+    blogUsuario.hidden = false;
+  } else {
+    blogUsuario.hidden = true;
   }
 
   enlaceGithub.href = usuario.html_url;
@@ -310,26 +394,26 @@ function mostrarUsuario(usuario) {
 }
 
 /**
- * Calcula y renderiza las estadísticas del perfil y de los repositorios obtenidos.
+ * Muestra las 4 estadísticas requeridas con datos reales de la API.
  * @param {Object} usuario
  * @param {Array<Object>} repos
  */
 function mostrarEstadisticas(usuario, repos) {
-  const totalEstrellas = repos.reduce((total, repo) => total + repo.stargazers_count, 0);
+  // Suma real de estrellas calculada a partir de los repositorios obtenidos
+  const totalEstrellas = repos.reduce((acumulado, repo) => acumulado + repo.stargazers_count, 0);
 
-  statRepos.textContent = usuario.public_repos;
-  statSeguidores.textContent = usuario.followers;
-  statSiguiendo.textContent = usuario.following;
-  statConsultados.textContent = repos.length;
-  statEstrellas.textContent = totalEstrellas;
+  statRepos.textContent = formateadorNumeros.format(usuario.public_repos);
+  statSeguidores.textContent = formateadorNumeros.format(usuario.followers);
+  statSiguiendo.textContent = formateadorNumeros.format(usuario.following);
+  statEstrellas.textContent = formateadorNumeros.format(totalEstrellas);
 
   seccionEstadisticas.hidden = false;
 }
 
 /**
- * Crea el elemento de lista correspondiente a un repositorio.
+ * Crea una tarjeta moderna e interactiva para un repositorio público.
  * @param {Object} repo
- * @param {number} indice - Posición en la lista, usada para escalonar la animación.
+ * @param {number} indice
  * @returns {HTMLLIElement}
  */
 function crearTarjetaRepositorio(repo, indice) {
@@ -337,40 +421,46 @@ function crearTarjetaRepositorio(repo, indice) {
 
   const articulo = document.createElement('article');
   articulo.className = 'repositorio';
-  articulo.style.animationDelay = `${Math.min(indice * 45, 360)}ms`;
+  articulo.style.animationDelay = `${Math.min(indice * 40, 360)}ms`;
 
+  // Título con enlace
   const nombre = document.createElement('h3');
   nombre.className = 'repositorio__nombre';
 
-  const enlaceNombre = document.createElement('a');
-  enlaceNombre.href = repo.html_url;
-  enlaceNombre.target = '_blank';
-  enlaceNombre.rel = 'noopener noreferrer';
-  enlaceNombre.textContent = repo.name;
-  nombre.append(enlaceNombre);
+  const enlace = document.createElement('a');
+  enlace.href = repo.html_url;
+  enlace.target = '_blank';
+  enlace.rel = 'noopener noreferrer';
+  enlace.textContent = repo.name;
+  nombre.append(enlace);
 
+  // Descripción
   const descripcion = document.createElement('p');
   descripcion.className = 'repositorio__descripcion';
   descripcion.textContent = repo.description || 'Sin descripción disponible.';
 
+  // Metadatos (lenguaje, estrellas, forks)
   const meta = document.createElement('div');
   meta.className = 'repositorio__meta';
 
-  const lenguaje = document.createElement('span');
+  // Lenguaje
+  const bloqueLenguaje = document.createElement('span');
   const puntoLenguaje = document.createElement('span');
   puntoLenguaje.className = 'repositorio__lenguaje-punto';
   puntoLenguaje.style.backgroundColor = COLORES_LENGUAJE[repo.language] || COLOR_LENGUAJE_DEFECTO;
-  lenguaje.append(puntoLenguaje, document.createTextNode(repo.language || 'Sin lenguaje'));
+  bloqueLenguaje.append(puntoLenguaje, document.createTextNode(repo.language || 'Sin especificar'));
 
-  const estrellas = document.createElement('span');
-  estrellas.innerHTML = ICONO_ESTRELLA; // Icono fijo del código, no proviene de la API.
-  estrellas.append(document.createTextNode(String(repo.stargazers_count)));
+  // Estrellas
+  const bloqueEstrellas = document.createElement('span');
+  bloqueEstrellas.innerHTML = ICONOS_SISTEMA.estrella;
+  bloqueEstrellas.append(document.createTextNode(formateadorNumeros.format(repo.stargazers_count)));
 
-  const forks = document.createElement('span');
-  forks.innerHTML = ICONO_FORK; // Icono fijo del código, no proviene de la API.
-  forks.append(document.createTextNode(String(repo.forks_count)));
+  // Forks
+  const bloqueForks = document.createElement('span');
+  bloqueForks.innerHTML = ICONOS_SISTEMA.fork;
+  bloqueForks.append(document.createTextNode(formateadorNumeros.format(repo.forks_count)));
 
-  meta.append(lenguaje, estrellas, forks);
+  meta.append(bloqueLenguaje, bloqueEstrellas, bloqueForks);
   articulo.append(nombre, descripcion, meta);
   item.append(articulo);
 
@@ -378,11 +468,13 @@ function crearTarjetaRepositorio(repo, indice) {
 }
 
 /**
- * Renderiza la lista de repositorios públicos, ordenados por estrellas descendente.
+ * Renderiza el listado de repositorios ordenados por mayor cantidad de estrellas.
  * @param {Array<Object>} repos
  */
 function mostrarRepositorios(repos) {
   listaRepositorios.replaceChildren();
+
+  repositoriosContador.textContent = formateadorNumeros.format(repos.length);
 
   if (repos.length === 0) {
     repositoriosVacio.hidden = false;
@@ -391,66 +483,95 @@ function mostrarRepositorios(repos) {
     repositoriosVacio.hidden = true;
     listaRepositorios.hidden = false;
 
-    const repositoriosOrdenados = [...repos].sort((a, b) => b.stargazers_count - a.stargazers_count);
+    // Ordenar de mayor a menor según número de estrellas
+    const reposOrdenados = [...repos].sort((a, b) => b.stargazers_count - a.stargazers_count);
 
     const fragmento = document.createDocumentFragment();
-    repositoriosOrdenados.forEach((repo, indice) => fragmento.append(crearTarjetaRepositorio(repo, indice)));
+    reposOrdenados.forEach((repo, indice) => {
+      fragmento.append(crearTarjetaRepositorio(repo, indice));
+    });
     listaRepositorios.append(fragmento);
   }
 
   seccionRepositorios.hidden = false;
 }
 
+// ============================================================================
+// 9. FLUJO PRINCIPAL DE BÚSQUEDA
+// ============================================================================
+
 /**
- * ============================================================================
- * CONTROLADOR PRINCIPAL DEL FORMULARIO
- * ============================================================================
+ * Ejecuta el proceso completo de consulta y renderizado para un usuario dado.
+ * @param {string} usernameRaw
  */
-formulario.addEventListener('submit', async (evento) => {
-  evento.preventDefault();
+async function ejecutarBusqueda(usernameRaw) {
+  const username = usernameRaw.trim();
 
-  const username = inputUsuario.value.trim();
-
-  // VALIDACIÓN PREVIA: ocurre siempre antes de cualquier fetch, sin usar catch.
+  // Validación previa estricta antes de disparar peticiones de red
   const validacion = validarUsuario(username);
   if (!validacion.valido) {
+    campoBusqueda.classList.remove('barra-busqueda__campo--valido');
     campoBusqueda.classList.add('barra-busqueda__campo--error');
+    iconoValido.hidden = true;
     limpiarResultados();
-    mostrarError(validacion.mensaje);
+    mostrarMensaje(validacion.tipo, validacion.mensaje);
     inputUsuario.focus();
     return;
   }
 
   campoBusqueda.classList.remove('barra-busqueda__campo--error');
+  campoBusqueda.classList.add('barra-busqueda__campo--valido');
+  iconoValido.hidden = false;
+
   limpiarResultados();
   mostrarLoading();
 
   try {
+    // Peticiones paralelas o secuenciales a la API de GitHub
     const usuario = await buscarUsuario(username);
     const repos = await obtenerRepositorios(username);
 
     mostrarUsuario(usuario);
     mostrarEstadisticas(usuario, repos);
     mostrarRepositorios(repos);
-    mostrarMensaje('exito', 'Usuario encontrado correctamente.', { autoOcultarMs: 1800 });
+    mostrarMensaje('exito', 'Usuario encontrado correctamente.', { autoOcultarMs: 2200 });
 
   } catch (error) {
     limpiarResultados();
 
     if (error.message === 'USUARIO_NO_ENCONTRADO') {
       mostrarError('No se encontró ningún usuario con ese nombre en GitHub.');
+    } else if (error.message === 'LIMITE_API_EXCEDIDO') {
+      mostrarError('Límite de peticiones de GitHub excedido. Por favor, espera unos minutos.');
     } else if (error instanceof TypeError) {
-      // TypeError es lanzado por fetch cuando existe una falla de red (sin conexión, DNS, etc.)
-      mostrarError('No se pudo conectar con GitHub. Revisa tu conexión e inténtalo nuevamente.');
+      // Fallo de red (sin conexión, DNS, etc.)
+      mostrarError('No se pudo conectar con GitHub. Revisa tu conexión a internet.');
     } else {
-      // Error inesperado: mensaje amigable sin exponer trazas técnicas al usuario
-      mostrarError('Ocurrió un error inesperado. Por favor, intenta de nuevo.');
+      mostrarError('Ocurrió un error inesperado al consultar la API de GitHub.');
     }
 
-    console.error('Detalle técnico del error:', error);
+    console.error('Detalle técnico:', error);
 
   } finally {
-    // El bloque finally se ejecuta SIEMPRE, ya sea que la petición haya sido exitosa o haya fallado.
+    // El bloque finally se ejecuta SIEMPRE para reactivar la interfaz
     ocultarLoading();
   }
+}
+
+// Escuchador de envío del formulario
+formulario.addEventListener('submit', (evento) => {
+  evento.preventDefault();
+  ejecutarBusqueda(inputUsuario.value);
+});
+
+// Chips interactivos de sugerencias rápidas
+chipsSugerencias.forEach((chip) => {
+  chip.addEventListener('click', () => {
+    const usuario = chip.getAttribute('data-usuario');
+    if (usuario) {
+      inputUsuario.value = usuario;
+      validarEnVivo();
+      ejecutarBusqueda(usuario);
+    }
+  });
 });
