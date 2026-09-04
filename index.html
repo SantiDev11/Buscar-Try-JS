@@ -3,106 +3,173 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Aplicación web para buscar usuarios de GitHub y consultar su información pública en tiempo real mediante la API oficial.">
+  <meta name="theme-color" content="#0a0d13">
+  <meta name="description" content="Aplicación web para buscar usuarios de GitHub y consultar su información pública, estadísticas y repositorios en tiempo real mediante la API oficial.">
   <title>Buscador de usuarios de GitHub</title>
-  
-  <!-- Tipografía moderna Google Fonts -->
+
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+
+  <!-- Tipografía: Plus Jakarta Sans para prosa/títulos, JetBrains Mono para datos (handle, cifras, metadatos de repos) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
   <!-- Hoja de estilos externa -->
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-  <!-- Encabezado principal semántico -->
-  <header class="encabezado-principal">
-    <h1 class="encabezado-principal__titulo">Buscador de usuarios de GitHub</h1>
-    <p class="encabezado-principal__subtitulo">Consulta la información pública de perfiles utilizando la API REST oficial.</p>
-  </header>
 
-  <!-- Contenedor semántico principal -->
-  <main class="contenedor-principal">
-    
-    <!-- Sección del formulario de búsqueda -->
-    <section class="seccion-busqueda" aria-labelledby="titulo-busqueda">
+  <!-- Loader inicial: visible al cargar la página, se oculta cuando la app está lista -->
+  <div id="loader-inicial" class="loader-inicial" role="status" aria-live="polite" aria-label="Cargando aplicación">
+    <div class="loader-inicial__anillo" aria-hidden="true"></div>
+    <p class="loader-inicial__texto">Cargando aplicación…</p>
+  </div>
+
+  <!-- Contenedor semántico principal: agrupa encabezado y consola de búsqueda pegados, sin espacio muerto -->
+  <main class="app">
+
+    <!-- Encabezado compacto: marca + título, sin hero de gran altura -->
+    <header class="cabecera">
+      <p class="cabecera__marca">
+        <svg class="cabecera__icono" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/>
+          <line x1="15.2" y1="15.2" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span class="cabecera__wordmark">GitHub<strong>Finder</strong></span>
+      </p>
+      <h1 class="cabecera__titulo">Buscador de usuarios de GitHub</h1>
+      <p class="cabecera__subtitulo">Consulta perfil, estadísticas y repositorios públicos con la API REST oficial.</p>
+    </header>
+
+    <!-- Sección del formulario de búsqueda: barra fusionada input + botón -->
+    <section class="consola" aria-labelledby="titulo-busqueda">
       <h2 id="titulo-busqueda" class="sr-only">Formulario para consultar usuario</h2>
 
-      <form id="formulario-usuario" class="formulario" novalidate>
-        <label for="input-usuario" class="formulario__label">Nombre de usuario:</label>
-        
-        <input 
-          type="text" 
-          id="input-usuario" 
-          name="username" 
-          class="formulario__input" 
-          placeholder="Ejemplo: octocat" 
-          autocomplete="off" 
-          spellcheck="false"
-        >
+      <form id="formulario-usuario" class="barra-busqueda" novalidate>
+        <label for="input-usuario" class="sr-only">Nombre de usuario de GitHub</label>
 
-        <button type="submit" id="btn-buscar" class="formulario__boton">
-          Buscar
+        <div class="barra-busqueda__campo">
+          <svg class="barra-busqueda__lupa" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/>
+            <line x1="15.2" y1="15.2" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span class="barra-busqueda__prefijo" aria-hidden="true">github.com/</span>
+          <input
+            type="text"
+            id="input-usuario"
+            name="username"
+            class="barra-busqueda__input"
+            placeholder="octocat"
+            autocomplete="off"
+            spellcheck="false"
+            aria-describedby="mensaje-estado"
+          >
+        </div>
+
+        <button type="submit" id="btn-buscar" class="barra-busqueda__boton">
+          <span class="barra-busqueda__boton-texto">Buscar</span>
         </button>
       </form>
 
-      <!-- Zona accesible para estado de carga y mensajes dinámicos -->
-      <p 
-        id="mensaje-estado" 
-        class="mensaje-estado" 
-        role="status" 
-        aria-live="polite"
-      ></p>
+      <!-- Zona accesible para estado de carga, validación y mensajes dinámicos (tipo "toast" contextual) -->
+      <p id="mensaje-estado" class="mensaje" role="status" aria-live="polite">
+        <span id="mensaje-icono" class="mensaje__icono" aria-hidden="true"></span>
+        <span id="mensaje-texto" class="mensaje__texto"></span>
+      </p>
+
+      <!-- Estado inicial / vacío: una sola línea, sin caja grande -->
+      <p id="estado-vacio" class="estado-vacio">
+        <svg class="estado-vacio__icono" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3 4 7v5c0 4.5 3.2 8 8 9 4.8-1 8-4.5 8-9V7l-8-4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        </svg>
+        Busca un usuario de GitHub para ver su perfil, estadísticas y repositorios.
+      </p>
     </section>
 
-    <!-- Sección de presentación del resultado -->
-    <section class="seccion-resultado" aria-label="Resultado de la búsqueda">
-      <article id="tarjeta-usuario" class="tarjeta-usuario" hidden>
-        <figure class="tarjeta-usuario__figura">
-          <img 
-            id="avatar-usuario" 
-            class="tarjeta-usuario__avatar" 
-            src="" 
-            alt="Avatar del usuario" 
-            width="120" 
-            height="120"
+    <!-- Sección de presentación del perfil -->
+    <section class="seccion-resultado" aria-label="Perfil del usuario">
+      <article id="tarjeta-usuario" class="perfil" hidden>
+        <figure class="perfil__figura">
+          <img
+            id="avatar-usuario"
+            class="perfil__avatar"
+            src=""
+            alt="Avatar del usuario"
+            width="88"
+            height="88"
           >
         </figure>
 
-        <header class="tarjeta-usuario__perfil">
-          <h2 id="nombre-usuario" class="tarjeta-usuario__nombre"></h2>
-          <p id="login-usuario" class="tarjeta-usuario__login"></p>
-        </header>
+        <div class="perfil__info">
+          <header class="perfil__cabecera">
+            <h2 id="nombre-usuario" class="perfil__nombre"></h2>
+            <p id="login-usuario" class="perfil__login"></p>
+          </header>
 
-        <ul class="tarjeta-usuario__estadisticas">
-          <li class="tarjeta-usuario__estadistica-item">
-            <span class="tarjeta-usuario__estadistica-label">Repositorios públicos:</span>
-            <strong id="repos-usuario" class="tarjeta-usuario__estadistica-valor">0</strong>
-          </li>
-        </ul>
+          <p id="bio-usuario" class="perfil__bio" hidden></p>
 
-        <p class="tarjeta-usuario__accion">
-          <a 
-            id="enlace-github" 
-            class="tarjeta-usuario__enlace" 
-            href="#" 
-            target="_blank" 
+          <p id="ubicacion-usuario" class="perfil__ubicacion" hidden>
+            <svg class="perfil__ubicacion-icono" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 21s-6.5-5.6-6.5-11A6.5 6.5 0 0 1 18.5 10c0 5.4-6.5 11-6.5 11Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+              <circle cx="12" cy="10" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            </svg>
+            <span id="ubicacion-texto"></span>
+          </p>
+
+          <a
+            id="enlace-github"
+            class="perfil__enlace"
+            href="#"
+            target="_blank"
             rel="noopener noreferrer"
           >
             Ver perfil en GitHub
           </a>
-        </p>
+        </div>
       </article>
+    </section>
+
+    <!-- Sección de estadísticas: franja única dividida por separadores, en vez de tarjetas repetidas -->
+    <section id="seccion-estadisticas" class="seccion-estadisticas" aria-labelledby="titulo-estadisticas" hidden>
+      <h2 id="titulo-estadisticas" class="titulo-bloque">Estadísticas</h2>
+
+      <ul class="franja-estadisticas">
+        <li class="franja-estadisticas__item">
+          <strong id="stat-repos" class="franja-estadisticas__valor">0</strong>
+          <span class="franja-estadisticas__etiqueta">Repositorios</span>
+        </li>
+        <li class="franja-estadisticas__item">
+          <strong id="stat-consultados" class="franja-estadisticas__valor">0</strong>
+          <span class="franja-estadisticas__etiqueta">Consultados</span>
+        </li>
+        <li class="franja-estadisticas__item">
+          <strong id="stat-seguidores" class="franja-estadisticas__valor">0</strong>
+          <span class="franja-estadisticas__etiqueta">Seguidores</span>
+        </li>
+        <li class="franja-estadisticas__item">
+          <strong id="stat-siguiendo" class="franja-estadisticas__valor">0</strong>
+          <span class="franja-estadisticas__etiqueta">Siguiendo</span>
+        </li>
+        <li class="franja-estadisticas__item franja-estadisticas__item--destacado">
+          <strong id="stat-estrellas" class="franja-estadisticas__valor">0</strong>
+          <span class="franja-estadisticas__etiqueta">Estrellas</span>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Sección de repositorios públicos -->
+    <section id="seccion-repositorios" class="seccion-repositorios" aria-labelledby="titulo-repositorios" hidden>
+      <h2 id="titulo-repositorios" class="titulo-bloque">Repositorios públicos</h2>
+
+      <p id="repositorios-vacio" class="repositorios__vacio" hidden>Este usuario todavía no tiene repositorios públicos.</p>
+
+      <ul id="lista-repositorios" class="repositorios__lista"></ul>
     </section>
 
   </main>
 
-  <!-- Pie de página semántico -->
-  <footer class="pie-pagina">
-    <p class="pie-pagina__texto">Ejercicio académico: HTML5 semántico, CSS3 y JavaScript moderno con Fetch API.</p>
-  </footer>
-
+  
   <!-- Lógica en archivo JS externo -->
-  <script src="script.js"></script>
+  <script src="js/script.js"></script>
 </body>
 </html>
